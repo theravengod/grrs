@@ -1,37 +1,34 @@
 use std::{env, fs};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use colored::Colorize;
 
 fn main() {
     let args: Vec<String> = env::args().collect(); // use : grrs -- arg1 arg2
     let (file_path, search_criteria) = parse_args(&args).expect(
-        "There was a problem parsing args"
+        &*"There was a problem parsing args".red()
     );
 
-    println!("Searching in: {}", file_path);
-    println!("Searching for: {}", search_criteria);
+    println!("Searching in: {}", file_path.yellow());
+    println!("Searching for: {}", &search_criteria);
 
-    let files = match read_directory(file_path) {
-        Ok(files) => files,
-        Err(err_msg) => {
-            eprintln!("{}", err_msg);
-            std::process::exit(1)
-        }
-    };
-    
+    let mut files: Vec<PathBuf> = Vec::new();
+    read_directory(file_path, &mut files);
+
     for file in files {
-        println!("Found: {}", file.display())
+        matches_term_in_file(file, &search_criteria);
     }
 }
 
 fn parse_args(args: &Vec<String>) -> Result<(String, String), String> {
     if args.len() < 3 {
-        eprintln!("Not enough params !");
+        eprintln!("{}", "Not enough params !".red());
         std::process::exit(1);
     }
 
     let file_path =
         if args.get(1).is_none() || args.get(1).unwrap().is_empty() {
-            eprintln!("No path provided !");
+            eprintln!("{}", "No path provided !".red());
             std::process::exit(1);
         } else {
             Some(args[1].clone())
@@ -39,7 +36,7 @@ fn parse_args(args: &Vec<String>) -> Result<(String, String), String> {
 
     let search_criteria =
         if args.get(2).is_none() || args.get(2).unwrap().is_empty() {
-            eprintln!("No search criteria provided !");
+            eprintln!("{}", "No search criteria provided !".red());
             std::process::exit(1);
         } else {
             Some(args[2].clone())
@@ -52,17 +49,40 @@ fn parse_args(args: &Vec<String>) -> Result<(String, String), String> {
     }
 }
 
-fn read_directory(directory_path: String) -> Result<Vec<PathBuf>, String> {
+fn read_directory(directory_path: String, files: &mut Vec<PathBuf>) {
     let paths = fs::read_dir(&directory_path);
 
-    let mut files = Vec::new();
     paths.unwrap().for_each(|f| {
-       files.push(f.unwrap().path());
+        let current = f.unwrap();
+        if current.file_type().unwrap().is_dir() {
+            read_directory(current.path().into_os_string().into_string().unwrap(), files);
+        } else {
+            files.push(current.path());
+        }
     });
+}
 
-    if !files.is_empty() {
-        Ok(files)
-    } else {
-        Err(format!("Could not read directory {}", &directory_path))
+fn matches_term_in_file(file_path: PathBuf, search_term: &String) {
+    let file = std::fs::File::open(&file_path);
+    let file_abs_path = &file_path.into_os_string().into_string().unwrap();
+    match file {
+        Ok(f) => {
+            let buff = BufReader::new(f);
+            let mut counter = 0;
+            for line in buff.lines() {
+                match line {
+                    Ok(text_line) => {
+                        if text_line.contains(search_term.as_str()) {
+                            println!("File {} matches line #{}: {}", file_abs_path, format!("{}", counter).green(), text_line)
+                        }
+                    }
+                    Err(_) => {}
+                }
+                counter = counter + 1
+            }
+        }
+        Err(_) => {
+            eprintln!("Can't look into file {}", file_abs_path)
+        }
     }
 }
