@@ -5,9 +5,8 @@ use colored::Colorize;
 
 fn main() {
     let args: Vec<String> = env::args().collect(); // use : grrs -- arg1 arg2
-    let (file_path, search_criteria) = parse_args(&args).expect(
-        &*"There was a problem parsing args".red()
-    );
+    let (file_path, search_criteria) = parse_args(&args)
+        .unwrap_or_else(|err_code| std::process::exit(err_code));
 
     println!("Searching in: {}", file_path.yellow());
     println!("Searching for: {}", &search_criteria);
@@ -20,16 +19,16 @@ fn main() {
     }
 }
 
-fn parse_args(args: &Vec<String>) -> Result<(String, String), String> {
+fn parse_args(args: &Vec<String>) -> Result<(String, String), i32> {
     if args.len() < 3 {
         eprintln!("{}", "Not enough params !".red());
-        std::process::exit(1);
+        return Err(1)
     }
 
     let file_path =
         if args.get(1).is_none() || args.get(1).unwrap().is_empty() {
             eprintln!("{}", "No path provided !".red());
-            std::process::exit(1);
+            return Err(1)
         } else {
             Some(args[1].clone())
         };
@@ -37,13 +36,13 @@ fn parse_args(args: &Vec<String>) -> Result<(String, String), String> {
     let search_criteria =
         if args.get(2).is_none() || args.get(2).unwrap().is_empty() {
             eprintln!("{}", "No search criteria provided !".red());
-            std::process::exit(1);
+            return Err(1)
         } else {
             Some(args[2].clone())
         };
 
     if file_path.is_none() || search_criteria.is_none() {
-        Err(String::from("Invalid params"))
+        Err(0)
     } else {
         Ok((file_path.unwrap(), search_criteria.unwrap()))
     }
@@ -84,5 +83,46 @@ fn matches_term_in_file(file_path: PathBuf, search_term: &String) {
         Err(_) => {
             eprintln!("Can't look into file {}", file_abs_path)
         }
+    }
+}
+
+#[cfg(test)]
+mod main_tests {
+
+    use super::*;
+
+    #[test]
+    fn test_arg_parsing_few_args() {
+        let just_2_params = vec![
+            String::from("/home/someuser/test"),
+            String::from("match")
+        ];
+
+        let result_code = parse_args(&just_2_params).unwrap_err();
+        assert_eq!(1, result_code)
+    }
+
+    #[test]
+    fn test_arg_parsing_no_path() {
+        let just_2_params = vec![
+            String::from("--"),
+            String::from(""),
+            String::from("match")
+        ];
+
+        let result_code = parse_args(&just_2_params).unwrap_err();
+        assert_eq!(1, result_code)
+    }
+
+    #[test]
+    fn test_arg_parsing_no_match() {
+        let just_2_params = vec![
+            String::from("--"),
+            String::from("/home/someuser/test"),
+            String::from("")
+        ];
+
+        let result_code = parse_args(&just_2_params).unwrap_err();
+        assert_eq!(1, result_code)
     }
 }
