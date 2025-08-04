@@ -87,7 +87,7 @@ fn matches_term_in_file(file_path: PathBuf, search_term: &String) {
 }
 
 #[cfg(test)]
-mod main_tests {
+mod tests {
 
     use super::*;
 
