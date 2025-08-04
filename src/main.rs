@@ -41,11 +41,7 @@ fn parse_args(args: &Vec<String>) -> Result<(String, String), i32> {
             Some(args[2].clone())
         };
 
-    if file_path.is_none() || search_criteria.is_none() {
-        Err(0)
-    } else {
-        Ok((file_path.unwrap(), search_criteria.unwrap()))
-    }
+    Ok((file_path.unwrap(), search_criteria.unwrap()))
 }
 
 fn read_directory(directory_path: String, files: &mut Vec<PathBuf>) {
